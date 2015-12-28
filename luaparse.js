@@ -192,6 +192,14 @@
       };
     }
 
+    , typedIdentifier: function(identifier, type) {
+        return {
+            type : 'TypedIdentifier'
+          , identifier: identifier
+          , varType: type
+        }
+    }
+
     , assignmentStatement: function(variables, init) {
       return {
           type: 'AssignmentStatement'
@@ -207,12 +215,13 @@
       };
     }
 
-    , functionStatement: function(identifier, parameters, isLocal, body) {
+    , functionStatement: function(identifier, parameters, retTypes, isLocal, body) {
       return {
           type: 'FunctionDeclaration'
         , identifier: identifier
         , isLocal: isLocal
         , parameters: parameters
+        , returnTypes: retTypes
         , body: body
       };
     }
@@ -1532,7 +1541,13 @@
       do {
         name = parseIdentifier();
 
-        variables.push(name);
+        if(consume(':')) {
+            var type = parseIdentifier();
+            variables.push(ast.typedIdentifier(name, type));
+        }
+        else {
+            variables.push(name);
+        }
       } while (consume(','));
 
       if (consume('=')) {
@@ -1662,7 +1677,13 @@
           // Function parameters are local.
           if (options.scope) scopeIdentifier(parameter);
 
-          parameters.push(parameter);
+          if(consume(':')) {
+              var type = parseIdentifier();
+              parameters.push(ast.typedIdentifier(parameter, type));
+          }
+          else {
+              parameters.push(parameter);
+          }
 
           if (consume(',')) continue;
           else if (consume(')')) break;
@@ -1678,12 +1699,21 @@
       }
     }
 
+    var retTypes = [];
+    if (consume(':')) {
+        while(true) {
+            retTypes.push(parseIdentifier());
+            if(consume(',')) continue;
+            else break;
+        }
+    }
+
     var body = parseBlock();
     expect('end');
     if (options.scope) destroyScope();
 
     isLocal = isLocal || false;
-    return finishNode(ast.functionStatement(name, parameters, isLocal, body));
+    return finishNode(ast.functionStatement(name, parameters, retTypes, isLocal, body));
   }
 
   // Parse the function name as identifiers and member expressions.
